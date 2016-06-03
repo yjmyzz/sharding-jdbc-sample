@@ -1,0 +1,6 @@
+# Created by .ignore support plugin (hsz.mobi)
+src/mybatis-generator
+shading-jdbc-hello.iml
+build
+.gradle
+logs

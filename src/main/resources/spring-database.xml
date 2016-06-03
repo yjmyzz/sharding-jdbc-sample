@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:rdb="http://www.dangdang.com/schema/ddframe/rdb"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context.xsd
+                        http://www.dangdang.com/schema/ddframe/rdb
+                        http://www.dangdang.com/schema/ddframe/rdb/rdb.xsd">
+
+    <context:component-scan base-package="com.cnblogs.yjmyzz.sharding"/>
+
+    <bean id="propertiesFactoryBean"
+          class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="locations">
+            <list>
+                <value>classpath:properties/jdbc.properties</value>
+            </list>
+        </property>
+    </bean>
+
+    <context:property-placeholder properties-ref="propertiesFactoryBean" ignore-unresolvable="true"/>
+
+    <bean id="parentDataSource" class="com.alibaba.druid.pool.DruidDataSource" init-method="init"
+          destroy-method="close">
+        <property name="driverClassName" value="${jdbc-driver}"/>
+        <property name="url" value="${jdbc-url-0}"/>
+        <property name="username" value="${jdbc-user-0}"/>
+        <property name="password" value="${jdbc-password-0}"/>
+        <property name="filters" value="stat"/>
+        <property name="maxActive" value="20"/>
+        <property name="initialSize" value="1"/>
+        <property name="maxWait" value="60000"/>
+        <property name="minIdle" value="1"/>
+        <property name="timeBetweenEvictionRunsMillis" value="3000"/>
+        <property name="minEvictableIdleTimeMillis" value="300000"/>
+        <property name="validationQuery" value="SELECT 'x'"/>
+        <property name="testWhileIdle" value="true"/>
+        <property name="testOnBorrow" value="false"/>
+        <property name="testOnReturn" value="false"/>
+        <property name="poolPreparedStatements" value="true"/>
+        <property name="maxPoolPreparedStatementPerConnectionSize" value="20"/>
+    </bean>
+
+    <!--数据源0-->
+    <bean id="ds_0" parent="parentDataSource">
+        <property name="driverClassName" value="${jdbc-driver}"/>
+        <property name="url" value="${jdbc-url-0}"/>
+        <property name="username" value="${jdbc-user-0}"/>
+        <property name="password" value="${jdbc-password-0}"/>
+    </bean>
+
+    <!--数据源1-->
+    <bean id="ds_1" parent="parentDataSource">
+        <property name="driverClassName" value="${jdbc-driver}"/>
+        <property name="url" value="${jdbc-url-1}"/>
+        <property name="username" value="${jdbc-user-1}"/>
+        <property name="password" value="${jdbc-password-1}"/>
+    </bean>
+
+    <!--数据源2-->
+    <bean id="ds_2" parent="parentDataSource">
+        <property name="driverClassName" value="${jdbc-driver}"/>
+        <property name="url" value="${jdbc-url-2}"/>
+        <property name="username" value="${jdbc-user-2}"/>
+        <property name="password" value="${jdbc-password-2}"/>
+    </bean>
+
+
+    <rdb:strategy id="databaseShardingStrategy" sharding-columns="user_id"
+                  algorithm-class="com.cnblogs.yjmyzz.sharding.algorithm.SingleKeyModuloDatabaseShardingAlgorithm"/>
+    <rdb:strategy id="tableShardingStrategy" sharding-columns="order_id"
+                  algorithm-class="com.cnblogs.yjmyzz.sharding.algorithm.SingleKeyModuloTableShardingAlgorithm"/>
+
+    <rdb:data-source id="shardingDataSource">
+        <rdb:sharding-rule data-sources="ds_0,ds_1,ds_2">
+            <rdb:table-rules>
+                <rdb:table-rule logic-table="t_order" actual-tables="t_order_${0..1}"
+                                database-strategy="databaseShardingStrategy" table-strategy="tableShardingStrategy"/>
+            </rdb:table-rules>
+        </rdb:sharding-rule>
+    </rdb:data-source>
+
+    <!--mybatis配置-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="configLocation" value="classpath:mybatis-config.xml"></property>
+        <property name="dataSource" ref="shardingDataSource"/>
+        <property name="mapperLocations" value="classpath:mybatis/OrderMapper.xml"/>
+    </bean>
+
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.cnblogs.yjmyzz.sharding.mapper"/>
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+    </bean>
+
+</beans>
